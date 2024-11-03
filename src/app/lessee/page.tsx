@@ -11,9 +11,8 @@ import {
   AlertCircle,
   ArrowRight,
   Building2,
-  Wallet,
-  FileText,
   MessageSquare,
+  FileText,
 } from "lucide-react";
 import {
   clusterApiUrl,
@@ -21,59 +20,84 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionSignature,
 } from "@solana/web3.js";
 import {
-  ActionGetResponse,
-  ActionPostRequest,
-  ActionPostResponse,
-  ACTIONS_CORS_HEADERS,
-  createPostResponse,
-} from "@solana/actions";
-import {
-  useWallet,
   WalletProvider,
   ConnectionProvider,
 } from "@solana/wallet-adapter-react";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import PhantomWalletButton from "@/components/phantom-wallet-button/PhantomWalletButton";
-import getProvider from "@/utils/getProvider";
+import { getProvider } from "@/utils/getProvider";
 import { circleTransfer } from "@/utils/circle-manual-transfer";
 
-const LesseePortal = () => {
-  const checkConnection = async () => {
+interface PropertyDetails {
+  address: string;
+  monthlyRent: number;
+  leaseStart: string;
+  leaseEnd: string;
+  landlordName: string;
+  preferredChain: string;
+  nextPaymentDue: string;
+  balance: number;
+}
+
+interface PaymentRecord {
+  date: string;
+  amount: number;
+  status: "completed" | "pending" | "upcoming";
+  chain: string;
+}
+
+interface WalletResponse {
+  publicKey: PublicKey;
+}
+
+const LesseePortal: React.FC = () => {
+  const checkConnection = async (): Promise<void> => {
     const provider = getProvider();
     try {
-      const resp = await provider.connect();
+      const resp = (await provider?.connect()) as WalletResponse;
       console.log(resp.publicKey.toString());
-    } catch (err) {
-      // { code: 4001, message: 'User rejected the request.' }
+    } catch (error: unknown) {
+      console.error("Connection error:", error);
     }
   };
 
-  const sendTransaction = async () => {
-    const provider = getProvider();
-    const resp = await provider.connect();
-    const sender = resp.publicKey;
-    const connection = new Connection(clusterApiUrl("devnet"));
-    const transaction = new Transaction();
-    transaction.add(
-      SystemProgram.transfer({
-        fromPubkey: sender,
-        toPubkey: sender,
-        lamports: 0,
-      })
-    );
-    transaction.feePayer = sender;
-    transaction.recentBlockhash = (
-      await connection.getLatestBlockhash()
-    ).blockhash;
-    const usdcTransfer = await circleTransfer();
-    console.log("transfer: ", usdcTransfer);
-    const { signature } = await provider.signAndSendTransaction(transaction);
-    await connection.getSignatureStatus(signature);
+  const sendTransaction = async (): Promise<void> => {
+    try {
+      const provider = getProvider();
+      if (!provider) throw new Error("No provider found");
+
+      const resp = (await provider.connect()) as WalletResponse;
+      const sender = resp.publicKey;
+      const connection = new Connection(clusterApiUrl("devnet"));
+
+      const transaction = new Transaction();
+      transaction.add(
+        SystemProgram.transfer({
+          fromPubkey: sender,
+          toPubkey: sender,
+          lamports: 0,
+        }),
+      );
+
+      transaction.feePayer = sender;
+      transaction.recentBlockhash = (
+        await connection.getLatestBlockhash()
+      ).blockhash;
+
+      const usdcTransfer = await circleTransfer();
+      console.log("transfer: ", usdcTransfer);
+
+      const { signature } = await provider.signAndSendTransaction(transaction);
+      await connection.getSignatureStatus(signature);
+    } catch (error) {
+      console.error("Transaction error:", error);
+    }
   };
 
-  const [activeProperty] = useState({
+  const [activeProperty] = useState<PropertyDetails>({
     address: "123 Crypto Street, Block #1337",
     monthlyRent: 1500,
     leaseStart: "2024-01-01",
@@ -84,7 +108,7 @@ const LesseePortal = () => {
     balance: 1500,
   });
 
-  const [paymentHistory] = useState([
+  const [paymentHistory] = useState<PaymentRecord[]>([
     { date: "2024-10-01", amount: 1500, status: "completed", chain: "Polygon" },
     {
       date: "2024-09-01",
@@ -95,43 +119,20 @@ const LesseePortal = () => {
     { date: "2024-08-01", amount: 1500, status: "completed", chain: "Solana" },
   ]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "text-green-600";
-      case "pending":
-        return "text-orange-600";
-      case "upcoming":
-        return "text-blue-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
-  const fetchWallet = async (req: Request) => {
-    const body: ActionPostRequest = await req.json();
-    const sender: PublicKey = new PublicKey(body.account);
-
-    const connection = new Connection(clusterApiUrl("devnet"));
-    const transaction = new Transaction();
-    transaction.add(
-      SystemProgram.transfer({
-        fromPubkey: sender,
-        toPubkey: sender,
-        lamports: 0,
-      })
-    );
-    transaction.feePayer = sender;
-    transaction.recentBlockhash = (
-      await connection.getLatestBlockhash()
-    ).blockhash;
+  const getStatusColor = (status: PaymentRecord["status"]): string => {
+    const colors = {
+      completed: "text-green-600",
+      pending: "text-orange-600",
+      upcoming: "text-blue-600",
+    };
+    return colors[status] || "text-gray-600";
   };
 
   return (
     <ConnectionProvider endpoint={clusterApiUrl("devnet")}>
       <WalletProvider wallets={[new PhantomWalletAdapter()]}>
         <div className="min-h-screen bg-slate-50">
-          {/* Top Navigation */}
+          {/* Navigation */}
           <nav className="bg-white shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16">
@@ -156,11 +157,11 @@ const LesseePortal = () => {
             </div>
           </nav>
 
+          {/* Main Content */}
           <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Property Details */}
+              {/* Property Details Column */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Property Overview Card */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -186,11 +187,11 @@ const LesseePortal = () => {
                         <p className="text-sm text-gray-500">Lease Period</p>
                         <p className="font-medium">
                           {new Date(
-                            activeProperty.leaseStart
+                            activeProperty.leaseStart,
                           ).toLocaleDateString()}{" "}
                           -
                           {new Date(
-                            activeProperty.leaseEnd
+                            activeProperty.leaseEnd,
                           ).toLocaleDateString()}
                         </p>
                       </div>
@@ -232,9 +233,7 @@ const LesseePortal = () => {
                           </div>
                           <div className="text-right">
                             <p
-                              className={`font-medium ${getStatusColor(
-                                payment.status
-                              )}`}
+                              className={`font-medium ${getStatusColor(payment.status)}`}
                             >
                               {payment.status.charAt(0).toUpperCase() +
                                 payment.status.slice(1)}
@@ -250,7 +249,7 @@ const LesseePortal = () => {
                 </Card>
               </div>
 
-              {/* Right Column - Actions and Upcoming Payments */}
+              {/* Actions Column */}
               <div className="space-y-6">
                 {/* Next Payment Card */}
                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
@@ -269,7 +268,7 @@ const LesseePortal = () => {
                         <span>Due Date</span>
                         <span>
                           {new Date(
-                            activeProperty.nextPaymentDue
+                            activeProperty.nextPaymentDue,
                           ).toLocaleDateString()}
                         </span>
                       </div>
@@ -295,18 +294,8 @@ const LesseePortal = () => {
                       className="w-full justify-between"
                     >
                       <span className="flex items-center">
-                        <Wallet className="mr-2 h-4 w-4" />
-                        Telegram Alerts
-                      </span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between"
-                    >
-                      <span className="flex items-center">
                         <Calendar className="mr-2 h-4 w-4" />
-                        View Payment Schedule
+                        Set Up Auto-Pay
                       </span>
                       <ArrowRight className="h-4 w-4" />
                     </Button>
@@ -350,7 +339,7 @@ const LesseePortal = () => {
                           className="rounded border-gray-300"
                         />
                         <span className="text-sm">
-                          Enable Telegram notifications
+                          Enable email notifications
                         </span>
                       </div>
                     </div>
