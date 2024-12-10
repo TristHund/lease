@@ -1,20 +1,24 @@
-import { PhantomProvider } from "../types";
+import { PhantomProvider } from "@/types/phantom";
 
-/**
- * Retrieves the Phantom Provider from the window object
- * @returns {PhantomProvider | undefined} a Phantom provider if one exists in the window
- */
-const getProvider = (): PhantomProvider | undefined => {
-  if ("phantom" in window) {
-    const anyWindow: any = window;
-    const provider = anyWindow.phantom?.solana;
+export interface WalletProvider {
+	isPhantom?: boolean;
+	connect: () => Promise<{ publicKey: string }>;
+	disconnect: () => Promise<void>;
+	signAndSendTransaction: (
+		transaction: unknown,
+	) => Promise<{ signature: string }>;
+}
 
-    if (provider?.isPhantom) {
-      return provider;
-    }
-  }
+export const getProvider = (): WalletProvider | null => {
+	if (typeof window !== "undefined") {
+		const provider = (window as Window & { solana?: PhantomProvider }).solana;
 
-  window.open("https://phantom.app/", "_blank");
+		if (provider?.isPhantom) {
+			return provider as WalletProvider;
+		}
+	}
+
+	return null;
 };
 
 export default getProvider;
