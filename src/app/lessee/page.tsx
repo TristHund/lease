@@ -30,6 +30,8 @@ import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import PhantomWalletButton from "@/components/phantom-wallet-button/PhantomWalletButton";
 import { getProvider } from "@/utils/getProvider";
 import { circleTransfer } from "@/utils/circle-manual-transfer";
+import { useSearchParams } from "next/navigation";
+import handleQueryParams from "@/utils/handleQueryParams";
 
 interface PropertyDetails {
   address: string;
@@ -55,6 +57,7 @@ interface WalletResponse {
 
 const LesseePortal: React.FC = () => {
   const checkConnection = async (): Promise<void> => {
+
     const provider = getProvider();
     try {
       const resp = (await provider?.connect()) as WalletResponse;
@@ -105,7 +108,7 @@ const LesseePortal: React.FC = () => {
     landlordName: "Alice Nakamoto",
     preferredChain: "Ethereum",
     nextPaymentDue: "2024-11-01",
-    balance: 1500,
+    balance: 1,
   });
 
   const [paymentHistory] = useState<PaymentRecord[]>([
@@ -155,8 +158,19 @@ const LesseePortal: React.FC = () => {
                 </div>
               </div>
             </div>
-          </nav>
-
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Contact Landlord
+              </Button>
+              <Button variant="outline" size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                View Lease
+              </Button>
+            </div>
+          </div>
+        </div>
+      </nav>
           {/* Main Content */}
           <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -194,11 +208,8 @@ const LesseePortal: React.FC = () => {
                             activeProperty.leaseEnd,
                           ).toLocaleDateString()}
                         </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-500">Monthly Rent</p>
-                        <p className="font-medium">
-                          ${activeProperty.monthlyRent} USDC
+                        <p className="text-sm text-gray-500">
+                          via {payment.chain}
                         </p>
                       </div>
                     </div>
@@ -349,8 +360,8 @@ const LesseePortal: React.FC = () => {
             </div>
           </main>
         </div>
-      </WalletProvider>
-    </ConnectionProvider>
+      </main>
+    </div>
   );
 };
 

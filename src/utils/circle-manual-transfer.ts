@@ -2,13 +2,15 @@ import { CircleTransfer, wormhole } from "@wormhole-foundation/sdk";
 import evm from "@wormhole-foundation/sdk/evm";
 import solana from "@wormhole-foundation/sdk/solana";
 import { getSigner } from "../helpers/helpers";
+import handleQueryParams from "./handleQueryParams";
 
-export async function circleTransfer() {
+export async function circleTransfer(chain: string) {
   // Initialize the Wormhole object for the Testnet environment and add supported chains (evm and solana)
   const wh = await wormhole("Testnet", [evm, solana]);
+  console.log("Chain: ", chain);
 
   // Grab chain Contexts -- these hold a reference to a cached rpc client
-  const sendChain = wh.getChain("Solana");
+  const sendChain = wh.getChain(chain);
   const rcvChain = wh.getChain("Sepolia");
 
   // Get signer from local key
@@ -16,7 +18,7 @@ export async function circleTransfer() {
   const destination = await getSigner(rcvChain);
 
   // Define the amount of USDC to transfer (in the smallest unit, so 0.1 USDC = 100,000 units assuming 6 decimals)
-  const amt = 100_000n;
+  const amt = 300_000n;
 
   const automatic = false;
 
