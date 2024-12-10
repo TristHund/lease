@@ -151,7 +151,7 @@ const LeasePaymentInterface = () => {
               <div>
                 <p className="text-sm font-medium">Total Lease Value</p>
                 <p className="text-2xl font-bold">
-                  {formData.monthlyRent * 12 || "0"} USDC
+                  {Number(formData.monthlyRent) * 12 || "0"} USDC
                 </p>
               </div>
             </div>
